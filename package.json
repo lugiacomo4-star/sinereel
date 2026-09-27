@@ -1,0 +1,17 @@
+{
+  "name": "sinereel",
+  "version": "0.1.0",
+  "description": "Render a vertical social reel - picture and soundtrack - entirely from code. Headless Chromium for the frames, numpy for the music.",
+  "license": "MIT",
+  "scripts": {
+    "render": "node src/render.js",
+    "build": "bash src/build.sh"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  },
+  "optionalDependencies": {
+    "@fontsource/inter": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0"
+  }
+}

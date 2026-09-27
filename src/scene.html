@@ -1,0 +1,205 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>headreel scene</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{overflow:hidden}
+  body{position:relative;-webkit-font-smoothing:antialiased}
+  #grain{position:absolute;inset:0;opacity:.055;pointer-events:none;z-index:60;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>")}
+  #vig{position:absolute;inset:0;z-index:55;pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0) 40%, rgba(0,0,0,.55) 100%)}
+  .brand{position:absolute;top:64px;left:72px;font-weight:500;font-size:30px;letter-spacing:.16em;z-index:50}
+  #bar{position:absolute;left:0;bottom:0;height:8px;z-index:50}
+  .scene{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:0 88px;opacity:0}
+  .kicker{font-weight:700;font-size:34px;letter-spacing:.22em;margin-bottom:40px}
+  h1{font-weight:800;font-size:124px;line-height:.96;letter-spacing:-.035em}
+  .sub{font-weight:500;font-size:36px;margin-top:44px;line-height:1.45}
+  .tag{font-weight:700;font-size:44px;border-radius:14px;padding:22px 30px;display:inline-block;margin-top:56px;align-self:flex-start}
+  .win{border-radius:22px;overflow:hidden;box-shadow:0 60px 120px rgba(0,0,0,.55)}
+  .win .top{display:flex;align-items:center;gap:14px;padding:24px 30px}
+  .dot{width:16px;height:16px;border-radius:50%}
+  .win .name{font-weight:500;font-size:28px;margin-left:16px}
+  .code{font-weight:500;font-size:33px;line-height:1.62;padding:38px 40px 38px 76px;
+    white-space:pre-wrap;text-indent:-36px}
+  .term{font-weight:500;font-size:36px;line-height:1.8;padding:44px 44px 44px 84px;
+    white-space:pre-wrap;text-indent:-40px}
+  .cur{display:inline-block;width:18px;height:36px;vertical-align:-6px;margin-left:4px}
+  .badge{display:inline-flex;align-items:center;gap:18px;border-radius:16px;padding:20px 28px;
+    font-weight:700;font-size:34px;margin-top:36px;opacity:0;align-self:flex-start}
+  .question{font-weight:700;font-size:44px;line-height:1.35;margin-top:56px}
+  .handle{font-weight:500;font-size:36px;margin-top:56px;letter-spacing:.1em}
+</style>
+<body>
+<div id="stage"></div>
+<div id="vig"></div><div id="grain"></div><div id="bar"></div>
+
+<script>
+/* headreel — builds the whole scene graph from window.REEL, then exposes setT(seconds).
+   render.js drives it one frame at a time; nothing here animates on its own. */
+(function () {
+  var R = window.REEL;
+  var T = R.theme, FG = T.fg, ACC = T.accent, DIM = T.dim;
+  var MONO = "'" + T.mono + "', ui-monospace, monospace";
+  var DISPLAY = "'" + T.display + "', system-ui, sans-serif";
+
+  document.documentElement.style.width = R.width + 'px';
+  document.documentElement.style.height = R.height + 'px';
+  var b = document.body.style;
+  b.width = R.width + 'px'; b.height = R.height + 'px';
+  b.background = T.bg; b.color = FG; b.fontFamily = DISPLAY;
+
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+  // [[x]] -> accent, {{x}} -> dim, \n -> line break
+  function rich(s) {
+    return esc(s)
+      .replace(/\[\[([\s\S]*?)\]\]/g, '<span style="color:' + ACC + '">$1</span>')
+      .replace(/\{\{([\s\S]*?)\}\}/g, '<span style="color:' + DIM + '">$1</span>')
+      .replace(/\n/g, '<br>');
+  }
+
+  var stage = document.getElementById('stage');
+  var bar = document.getElementById('bar');
+  bar.style.background = ACC;
+
+  var brand = document.createElement('div');
+  brand.className = 'brand';
+  brand.style.fontFamily = MONO;
+  brand.style.color = DIM;
+  brand.innerHTML = esc(R.brand);
+  document.body.appendChild(brand);
+
+  function el(tag, cls, css, html) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (css) for (var k in css) n.style[k] = css[k];
+    if (html != null) n.innerHTML = html;
+    return n;
+  }
+
+  function windowChrome(filename) {
+    var w = el('div', 'win', { background: '#121417', border: '2px solid #22262C' });
+    var top = el('div', 'top', { background: '#16191D', borderBottom: '2px solid #22262C' });
+    ['#FF5F57', '#FEBC2E', '#28C840'].forEach(function (c) {
+      top.appendChild(el('span', 'dot', { background: c }));
+    });
+    top.appendChild(el('span', 'name', { fontFamily: MONO, color: DIM }, esc(filename || '')));
+    w.appendChild(top);
+    return w;
+  }
+
+  // --- build one DOM node per scene, remembering the bits setT has to animate
+  var built = [], clock = 0;
+
+  R.scenes.forEach(function (s, i) {
+    var root = el('div', 'scene');
+    var rec = { s: s, root: root, start: clock, end: clock + s.dur };
+    clock += s.dur;
+
+    if (s.kicker) root.appendChild(el('div', 'kicker', { fontFamily: MONO, color: ACC }, esc(s.kicker)));
+
+    if (s.type === 'title' || s.type === 'outro') {
+      root.appendChild(el('h1', null, null, rich(s.headline || '')));
+      if (s.sub) root.appendChild(el('div', 'sub', { fontFamily: MONO, color: '#8A929B' }, rich(s.sub)));
+      if (s.tag) {
+        var tag = el('div', 'tag', {
+          fontFamily: MONO, background: '#16181C',
+          border: '2px solid #23262B', color: FG
+        }, rich(s.tag));
+        rec.cursor = el('span', 'cur', { background: ACC });
+        tag.appendChild(rec.cursor);
+        root.appendChild(tag);
+      }
+      if (s.question) root.appendChild(el('div', 'question', { fontFamily: MONO, color: ACC }, rich(s.question)));
+      if (s.type === 'outro') root.appendChild(el('div', 'handle', { fontFamily: MONO, color: DIM }, '@' + esc(R.brand)));
+    }
+
+    if (s.type === 'code') {
+      var w = windowChrome(s.filename);
+      rec.code = el('div', 'code', { fontFamily: MONO, color: '#C8CFD6' });
+      w.appendChild(rec.code);
+      root.appendChild(w);
+      rec.words = s.highlight || [];
+    }
+
+    if (s.type === 'terminal') {
+      var w2 = windowChrome(s.filename);
+      rec.term = el('div', 'term', { fontFamily: MONO, color: '#C8CFD6' });
+      w2.appendChild(rec.term);
+      root.appendChild(w2);
+      if (s.badge) {
+        rec.badge = el('div', 'badge', {
+          background: '#2A1512', border: '2px solid #52251D', color: '#FF8462', fontFamily: MONO
+        }, esc(s.badge));
+        root.appendChild(rec.badge);
+      }
+    }
+
+    stage.appendChild(root);
+    built.push(rec);
+  });
+
+  var TOTAL = clock;
+  window.REEL_DURATION = TOTAL;
+
+  function ease(x) { return x < 0 ? 0 : x > 1 ? 1 : 1 - Math.pow(1 - x, 3); }
+
+  function colorize(str, words) {
+    var out = esc(str);
+    if (words && words.length) {
+      var re = new RegExp('("(?:' + words.join('|') + ')")', 'g');
+      out = out.replace(re, '<span style="color:' + ACC + '">$1</span>');
+    }
+    return out.replace(/(grep[^"]*exit 2)/g, '<span style="color:' + T.good + '">$1</span>');
+  }
+
+  // p is 0..1 inside the scene; fade in over the first 10%, out over the last 6%
+  function fade(rec, p) {
+    var o = (p < 0 || p > 1) ? 0
+      : Math.min(1, ease(p / 0.10)) * Math.min(1, ease((1 - p) / 0.06));
+    rec.root.style.opacity = o.toFixed(3);
+    rec.root.style.transform = 'translateY(' + ((1 - ease(Math.min(1, p / 0.22))) * 26).toFixed(1) + 'px)';
+    return o;
+  }
+
+  window.setT = function (t) {
+    bar.style.width = (t / TOTAL * R.width).toFixed(1) + 'px';
+    var blink = (Math.floor(t * 2) % 2) === 0;
+
+    built.forEach(function (rec) {
+      var p = (t - rec.start) / (rec.end - rec.start);
+      if (fade(rec, p) <= 0) return;
+
+      if (rec.cursor) rec.cursor.style.opacity = blink ? 1 : 0;
+
+      if (rec.code) {
+        var body = rec.s.body;
+        var n = Math.floor(Math.max(0, Math.min(1, (p - 0.06) / 0.62)) * body.length);
+        var done = n >= body.length;
+        rec.code.innerHTML = colorize(body.slice(0, n), rec.words) +
+          (done && blink ? '' : '<span class="cur" style="background:' + ACC + '"></span>');
+      }
+
+      if (rec.term) {
+        var lines = rec.s.lines, joined = lines.join('');
+        var k = Math.max(0, Math.min(1, (p - 0.05) / 0.35));
+        var chars = Math.floor(k * joined.length), html = '', used = 0;
+        for (var li = 0; li < lines.length; li++) {
+          var take = Math.max(0, Math.min(lines[li].length, chars - used));
+          if (li) html += '\n';
+          html += li === 0
+            ? '<span style="color:' + ACC + '">' + esc(lines[li].slice(0, take)) + '</span>'
+            : esc(lines[li].slice(0, take));
+          used += lines[li].length;
+        }
+        if (k >= 1 && rec.s.result) html += '\n<span style="color:' + T.bad + '">  ' + esc(rec.s.result) + '</span>';
+        rec.term.innerHTML = html;
+        if (rec.badge) rec.badge.style.opacity = p > 0.55 ? Math.min(1, (p - 0.55) / 0.12).toFixed(2) : 0;
+      }
+    });
+  };
+
+  window.setT(0);
+})();
+</script>

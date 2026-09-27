@@ -1,0 +1,75 @@
+{
+  "title": "env-guard",
+  "width": 1080,
+  "height": 1920,
+  "fps": 24,
+  "brand": "shipwithagents",
+  "theme": {
+    "bg": "#0B0C0E",
+    "fg": "#F2EFEA",
+    "dim": "#6E7781",
+    "accent": "#E9713B",
+    "bad": "#FF6B4A",
+    "good": "#7FBE8C",
+    "display": "Inter",
+    "mono": "JetBrains Mono"
+  },
+  "music": {
+    "enabled": true,
+    "bpm": 120,
+    "root": 41.2
+  },
+  "scenes": [
+    {
+      "type": "title",
+      "dur": 2.8,
+      "mood": "intro",
+      "kicker": "SECURITY \u00b7 15 SECONDS",
+      "headline": "Your agent\ncan read\n[[.env]]",
+      "tag": "Read([[.env]]) -> AWS keys, Stripe, DB"
+    },
+    {
+      "type": "title",
+      "dur": 2.4,
+      "mood": "build",
+      "headline": "{{Everyone locks\nthe repo.}}\nIt's a [[permission]]\nproblem.",
+      "sub": "One file. Four lines. It never sees them again."
+    },
+    {
+      "type": "code",
+      "dur": 4.6,
+      "mood": "build",
+      "kicker": ".claude/settings.json",
+      "filename": "settings.json",
+      "body": "{\n  \"hooks\": {\n    \"PreToolUse\": [{\n      \"matcher\": \"Read\",\n      \"hooks\": [{\n        \"type\": \"command\",\n        \"command\": \"block-env.sh\"\n      }]\n    }]\n  }\n}",
+      "highlight": [
+        "PreToolUse",
+        "Read",
+        "command",
+        "matcher",
+        "hooks",
+        "type"
+      ]
+    },
+    {
+      "type": "terminal",
+      "dur": 3.2,
+      "mood": "tension",
+      "kicker": "NEXT SESSION",
+      "filename": "claude",
+      "lines": [
+        "> claude",
+        "  Reading .env for your keys"
+      ],
+      "result": "x blocked \u00b7 exit 2",
+      "badge": "PreToolUse \u00b7 blocked before the read"
+    },
+    {
+      "type": "outro",
+      "dur": 2.4,
+      "mood": "payoff",
+      "headline": "Add it\nbefore your\n[[next session]].",
+      "question": "What's the first thing yours tried to read?"
+    }
+  ]
+}
